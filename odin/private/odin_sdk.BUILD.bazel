@@ -1,0 +1,33 @@
+# BUILD file for a downloaded Odin SDK.
+# This is used as build_file_content for http_archive of the Odin toolchain.
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "compiler",
+    srcs = select({
+        "@platforms//os:windows": ["odin.exe"],
+        "//conditions:default": ["odin"],
+    }),
+)
+
+filegroup(
+    name = "sdk",
+    srcs = glob(
+        [
+            "base/**",
+            "core/**",
+            "vendor/**",
+            "shared/**",
+        ],
+        allow_empty = True,
+    ),
+)
+
+filegroup(
+    name = "all_files",
+    srcs = [
+        ":compiler",
+        ":sdk",
+    ],
+)

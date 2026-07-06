@@ -1,0 +1,11 @@
+# Import shared flags
+import %workspace%/tools/preset.bazelrc
+
+# Enable bzlmod (default in Bazel 7+, explicit for clarity)
+common --enable_bzlmod
+
+# Ensure hermetic builds
+build --incompatible_strict_action_env
+
+# Show test output on failure
+test --test_output=errors

@@ -1,0 +1,22 @@
+# Bazel
+/bazel-*
+**/bazel-*
+*.runfiles/
+*.runfiles_manifest
+
+# Module lock (generated, but we commit it for reproducibility)
+# MODULE.bazel.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Bazel user-specific
+user.bazelrc

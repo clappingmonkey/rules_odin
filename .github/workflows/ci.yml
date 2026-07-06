@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        bazel: ["7.x", "8.x"]
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bazelisk
+        uses: bazelbuild/setup-bazelisk@v3
+
+      - name: Mount Bazel cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: ${{ runner.os }}-bazel-${{ matrix.bazel }}-${{ hashFiles('MODULE.bazel.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bazel-${{ matrix.bazel }}-
+
+      - name: Set Bazel version
+        run: echo "${{ matrix.bazel == '7.x' && '7.6.1' || '8.0.0' }}" > .bazelversion
+
+      - name: Build rules_odin
+        run: bazel build //...
+
+      - name: Run smoke test
+        working-directory: e2e/smoke
+        run: bazel build //...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Buildifier check
+        uses: bazelbuild/buildtools/buildifier@v7
+        with:
+          args: -mode=check -lint=warn -r .

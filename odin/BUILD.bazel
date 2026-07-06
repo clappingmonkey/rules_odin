@@ -1,0 +1,35 @@
+"""rules_odin public package — exports toolchain type and public rules."""
+
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# The toolchain type that all odin rules resolve against.
+toolchain_type(
+    name = "toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+# bzl_library targets for documentation and IDE support
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    deps = ["//odin/private:binary_bzl"],
+)
+
+bzl_library(
+    name = "toolchain",
+    srcs = ["toolchain.bzl"],
+)
+
+bzl_library(
+    name = "extensions",
+    srcs = ["extensions.bzl"],
+    deps = [":repositories"],
+)
+
+bzl_library(
+    name = "repositories",
+    srcs = ["repositories.bzl"],
+    deps = ["//odin/private:toolchains_repo_bzl"],
+)

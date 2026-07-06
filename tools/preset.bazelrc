@@ -1,0 +1,8 @@
+# Shared preset flags for rules_odin development.
+# Users of rules_odin do NOT need this file.
+
+# Performance
+build --worker_sandboxing
+
+# Convenience
+build --experimental_convenience_symlinks=normal

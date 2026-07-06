@@ -1,0 +1,6 @@
+load("@rules_odin//odin:defs.bzl", "odin_binary")
+
+odin_binary(
+    name = "hello",
+    srcs = glob(["hello/*.odin"]),
+)

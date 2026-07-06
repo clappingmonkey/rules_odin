@@ -1,0 +1,9 @@
+# BCR publish-to-bcr configuration
+# See: https://github.com/bazel-contrib/publish-to-bcr
+
+fixedReleaser:
+  login: "ventsislavk"
+  email: "clappingmonkey33@gmail.com"
+
+moduleRoots:
+  - "."

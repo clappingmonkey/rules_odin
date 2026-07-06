@@ -1,0 +1,3 @@
+"""Empty BUILD for odin/tests package."""
+
+package(default_visibility = ["//odin:__subpackages__"])
