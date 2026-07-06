@@ -18,5 +18,8 @@
 .DS_Store
 Thumbs.db
 
+# Personal TODO
+TODO.md
+
 # Bazel user-specific
 user.bazelrc

@@ -1,8 +1,6 @@
 """Implementation of the odin_binary rule."""
 
-load("//odin:toolchain.bzl", "OdinInfo")
-
-def _get_package_dir(ctx, srcs):
+def _get_package_dir(srcs):
     """Determine the package directory from source files.
 
     All source files must reside in the same directory (Odin compiles
@@ -40,7 +38,7 @@ def _odin_binary_impl(ctx):
     out = ctx.actions.declare_file(out_name)
 
     srcs = ctx.files.srcs
-    pkg_dir = _get_package_dir(ctx, srcs)
+    pkg_dir = _get_package_dir(srcs)
 
     # Build the compiler arguments
     args = ctx.actions.args()
