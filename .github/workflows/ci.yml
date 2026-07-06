@@ -6,46 +6,65 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        bazel: ["7.x", "8.x"]
-      fail-fast: false
-
-    runs-on: ${{ matrix.os }}
-
+  buildifier:
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Setup Bazelisk
-        uses: bazelbuild/setup-bazelisk@v3
+      - name: Install buildifier
+        run: |
+          curl -fsSL -o /usr/local/bin/buildifier \
+            "https://github.com/bazelbuild/buildtools/releases/download/v8.5.1/buildifier-linux-amd64"
+          chmod +x /usr/local/bin/buildifier
 
-      - name: Mount Bazel cache
-        uses: actions/cache@v4
+      - name: Check formatting
+        run: buildifier --mode=check --lint=warn -r .
+
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+        bazel: ["7.7.1", "8.7.0", "9.1.1"]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
         with:
-          path: ~/.cache/bazel
-          key: ${{ runner.os }}-bazel-${{ matrix.bazel }}-${{ hashFiles('MODULE.bazel.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bazel-${{ matrix.bazel }}-
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-${{ matrix.os }}-${{ matrix.bazel }}
+          repository-cache: true
 
-      - name: Set Bazel version
-        run: echo "${{ matrix.bazel == '7.x' && '7.6.1' || '8.0.0' }}" > .bazelversion
+      - name: Pin Bazel version
+        shell: bash
+        run: echo "${{ matrix.bazel }}" > .bazelversion
 
       - name: Build rules_odin
+        shell: bash
         run: bazel build //...
 
-      - name: Run smoke test
+      - name: Smoke test
+        shell: bash
         working-directory: e2e/smoke
-        run: bazel build //...
+        run: |
+          echo "${{ matrix.bazel }}" > .bazelversion
+          bazel build //...
 
-  lint:
-    runs-on: ubuntu-latest
+  ci:
+    needs: [buildifier, build]
+    runs-on: ubuntu-24.04
+    if: always()
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Buildifier check
-        uses: bazelbuild/buildtools/buildifier@v7
-        with:
-          args: -mode=check -lint=warn -r .
+      - name: Check results
+        run: |
+          if [[ "${{ needs.buildifier.result }}" != "success" || \
+                "${{ needs.build.result }}" != "success" ]]; then
+            echo "CI failed: buildifier=${{ needs.buildifier.result }}, build=${{ needs.build.result }}"
+            exit 1
+          fi

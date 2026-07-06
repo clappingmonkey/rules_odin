@@ -91,7 +91,7 @@ def _odin_binary_impl(ctx):
         env = env,
         mnemonic = "OdinBuild",
         progress_message = "Compiling Odin binary %{label}",
-        use_default_shell_env = False,
+        use_default_shell_env = True,
     )
 
     return [
