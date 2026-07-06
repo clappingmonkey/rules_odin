@@ -33,7 +33,7 @@ def _odin_binary_impl(ctx):
     if ctx.attr.out:
         out_name = ctx.attr.out
     else:
-        out_name = ctx.label.name
+        out_name = ctx.label.name + odin_info.binary_ext
 
     out = ctx.actions.declare_file(out_name)
 

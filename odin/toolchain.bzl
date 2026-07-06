@@ -8,6 +8,7 @@ OdinInfo = provider(
         "sdk_files": "depset: All files in the Odin SDK (core/, base/, vendor/).",
         "all_files": "depset: All toolchain files (compiler + SDK).",
         "version": "String: The Odin version tag (e.g., 'dev-2026-06').",
+        "binary_ext": "String: Platform binary extension ('.exe' on Windows, '' elsewhere).",
     },
 )
 
@@ -57,6 +58,7 @@ def _odin_toolchain_impl(ctx):
         sdk_files = depset(sdk_files),
         all_files = depset(all_files),
         version = ctx.attr.version,
+        binary_ext = ctx.attr.binary_ext,
     )
 
     toolchain_info = platform_common.ToolchainInfo(
@@ -95,6 +97,10 @@ odin_toolchain = rule(
         ),
         "version": attr.string(
             doc = "Odin version tag (e.g., 'dev-2026-06').",
+            default = "",
+        ),
+        "binary_ext": attr.string(
+            doc = "Extension for binary outputs ('.exe' on Windows, '' elsewhere).",
             default = "",
         ),
     },

@@ -11,6 +11,7 @@ PLATFORMS = {
             "@platforms//os:linux",
             "@platforms//cpu:x86_64",
         ],
+        binary_ext = "",
     ),
     "linux_arm64": struct(
         exec_compatible_with = [
@@ -21,6 +22,7 @@ PLATFORMS = {
             "@platforms//os:linux",
             "@platforms//cpu:aarch64",
         ],
+        binary_ext = "",
     ),
     "macos_amd64": struct(
         exec_compatible_with = [
@@ -31,6 +33,7 @@ PLATFORMS = {
             "@platforms//os:macos",
             "@platforms//cpu:x86_64",
         ],
+        binary_ext = "",
     ),
     "macos_arm64": struct(
         exec_compatible_with = [
@@ -41,6 +44,7 @@ PLATFORMS = {
             "@platforms//os:macos",
             "@platforms//cpu:aarch64",
         ],
+        binary_ext = "",
     ),
     "windows_amd64": struct(
         exec_compatible_with = [
@@ -51,6 +55,7 @@ PLATFORMS = {
             "@platforms//os:windows",
             "@platforms//cpu:x86_64",
         ],
+        binary_ext = ".exe",
     ),
 }
 
@@ -59,6 +64,7 @@ load("@rules_odin//odin:toolchain.bzl", "odin_toolchain")
 
 odin_toolchain(
     name = "{platform}_toolchain_impl",
+    binary_ext = "{binary_ext}",
     compiler = "@{sdk_repo}//:compiler",
     sdk = "@{sdk_repo}//:sdk",
     sdk_root = "external/{sdk_repo}",
@@ -90,6 +96,7 @@ def _toolchains_repo_impl(rctx):
             platform = platform,
             sdk_repo = sdk_repo,
             version = rctx.attr.odin_version,
+            binary_ext = info.binary_ext,
             exec_compatible_with = repr(info.exec_compatible_with),
             target_compatible_with = repr(info.target_compatible_with),
         )

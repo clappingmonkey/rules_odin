@@ -42,7 +42,6 @@ jobs:
         run: bazel build //...
 
       - name: Smoke test
-        if: runner.os != 'Windows'  # TODO: Windows needs .exe extension fix
         shell: bash
         working-directory: e2e/smoke
         run: |
