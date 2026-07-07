@@ -1,5 +1,8 @@
 # rules_odin
 
+[![Check](https://github.com/clappingmonkey/rules_odin/actions/workflows/check.yaml/badge.svg)](https://github.com/clappingmonkey/rules_odin/actions/workflows/check.yaml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/v1/github.com/clappingmonkey/rules_odin/badge)](https://securityscorecards.dev/viewer/?uri=github.com/clappingmonkey/rules_odin)
+
 Bazel rules for the [Odin programming language](https://odin-lang.org/).
 
 ## Overview
@@ -11,7 +14,7 @@ Bazel rules for the [Odin programming language](https://odin-lang.org/).
 - Hermetic Odin toolchain management (no system install required)
 - bzlmod-first (no WORKSPACE file needed)
 - Multi-platform support: Linux (x86-64, ARM64), macOS (x86-64, ARM64), Windows (x86-64)
-- Bazel 7.x and 8.x compatible
+- Bazel 7.x, 8.x, and 9.x compatible
 
 ## Quick Start
 
@@ -60,9 +63,11 @@ Compiles an Odin package (directory of `.odin` files) into an executable.
 | dev-2026-06  | Supported |
 | dev-2026-05  | Supported |
 
+See [COMPATIBILITY.md](COMPATIBILITY.md) for the full version matrix.
+
 ## Requirements
 
-- Bazel 7.x or 8.x
+- Bazel 7.x, 8.x, or 9.x
 - **Linux**: `clang` or `gcc` (for linking)
 - **macOS**: Xcode Command Line Tools
 - **Windows**: MSVC "Desktop development with C++" workload
