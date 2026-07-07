@@ -1,0 +1,56 @@
+# Automated version tagging using conventional commits.
+#
+# Uses smlx/ccv to calculate the next semver version from commit history
+# since the last tag. Runs bi-monthly (1st and 16th) to batch changes
+# into well-paced releases — matching the cadence used by bazel-contrib
+# projects (bazel-lib, rules_lint) to avoid overwhelming BCR reviewers.
+#
+# Manual dispatch is available for immediate releases after critical fixes.
+#
+# Major version bumps are blocked from auto-release (require human decision).
+
+name: Tag
+
+on:
+  workflow_dispatch:
+
+  # Bi-monthly: 1st and 16th at 15:00 UTC.
+  # Offset from bazel-lib (2nd/17th) and rules_lint (3rd/18th) to stagger BCR load.
+  schedule:
+    - cron: "0 15 1,16 * *"
+
+permissions: {}
+
+jobs:
+  tag:
+    name: Calculate version
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      new-tag: ${{ steps.ccv.outputs.new-tag }}
+      new-tag-version: ${{ steps.ccv.outputs.new-tag-version }}
+      new-tag-version-type: ${{ steps.ccv.outputs.new-tag-version-type }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0 # Full history required for ccv to find previous tags
+
+      - name: Conventional Commits Versioner
+        id: ccv
+        uses: smlx/ccv@7318e2f25a52dcd550e75384b84983973251a1f8 # v0.10.0
+
+  release:
+    name: Trigger release
+    needs: tag
+    # Only trigger when:
+    #   1. A new tag was actually created
+    #   2. It is NOT a major version bump (major bumps require human decision)
+    if: needs.tag.outputs.new-tag == 'true' && needs.tag.outputs.new-tag-version-type != 'major'
+    uses: ./.github/workflows/release.yaml
+    with:
+      tag_name: ${{ needs.tag.outputs.new-tag-version }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
