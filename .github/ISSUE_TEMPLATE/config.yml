@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Ask a Question
+    url: https://github.com/clappingmonkey/rules_odin/discussions/new?category=q-a
+    about: Usage questions, help requests, and general discussion belong in GitHub Discussions.
+
+  - name: Odin Language Documentation
+    url: https://odin-lang.org/docs/
+    about: Check the Odin language docs before reporting a compiler or language behavior issue.
+
+  - name: Bazel Documentation
+    url: https://bazel.build/docs
+    about: For questions about Bazel itself (not rules_odin), see the Bazel docs.
