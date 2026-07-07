@@ -1,0 +1,61 @@
+name: Feature Request
+description: Suggest a new rule, new functionality, or an improvement to existing behavior
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement to rules_odin!
+
+        Before submitting, check [existing feature requests](https://github.com/clappingmonkey/rules_odin/issues?q=is%3Aissue+label%3Aenhancement).
+        For general usage questions or ideas, use [Discussions](https://github.com/clappingmonkey/rules_odin/discussions) instead.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I have searched existing issues and discussions for this request.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: >
+        What problem are you trying to solve? Describe the use case.
+        "I want to be able to..." is often clearer than "Please add X".
+      placeholder: "When building a multi-package Odin project, I cannot... because..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: >
+        Describe what you'd like. A sketch of the rule API (attributes, outputs) is very helpful.
+      placeholder: |
+        A new rule `odin_library` that accepts:
+          - srcs: list of .odin source files
+          - deps: other odin_library targets
+        and produces a linkable archive.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds or alternative approaches have you tried?
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Links, similar implementations in other rulesets, references, etc.
+    validations:
+      required: false

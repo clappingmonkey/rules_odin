@@ -1,0 +1,115 @@
+name: Bug Report
+description: Report incorrect, broken, or unexpected behavior in rules_odin
+title: "bug: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report!
+
+        Please search [existing issues](https://github.com/clappingmonkey/rules_odin/issues?q=is%3Aissue+label%3Abug)
+        (including [closed ones](https://github.com/clappingmonkey/rules_odin/issues?q=is%3Aissue+label%3Abug+is%3Aclosed))
+        before opening a new one.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I have searched existing issues and this is not a duplicate.
+          required: true
+        - label: I have read the [README](https://github.com/clappingmonkey/rules_odin#readme).
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: >
+        What is the current (wrong) behavior? What did you expect instead?
+      placeholder: |
+        Current behavior: ...
+        Expected behavior: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: >
+        Provide a BUILD file and MODULE.bazel snippet that reproduces the issue.
+        A link to a minimal GitHub repo is even better.
+      render: starlark
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Error output / logs
+      description: >
+        Paste the full Bazel error output.
+        This will be rendered as a code block automatically.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: rules_odin_version
+    attributes:
+      label: rules_odin version
+      description: From your MODULE.bazel (e.g., `0.3.0` or a git commit hash)
+      placeholder: "e.g., 0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: bazel_version
+    attributes:
+      label: Bazel version
+      description: Output of `bazel --version`
+      placeholder: "e.g., bazel 8.7.0"
+    validations:
+      required: true
+
+  - type: input
+    id: odin_version
+    attributes:
+      label: Odin compiler version
+      description: Output of `odin version` (if relevant to the bug)
+      placeholder: "e.g., dev-2026-06"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      multiple: true
+      options:
+        - Linux (x86_64)
+        - Linux (arm64)
+        - macOS (x86_64)
+        - macOS (arm64 / Apple Silicon)
+        - Windows
+    validations:
+      required: true
+
+  - type: input
+    id: regression
+    attributes:
+      label: Regression? Last working version
+      description: If this worked before, which was the last version where it worked?
+      placeholder: "e.g., 0.1.0 or not a regression"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Workarounds, related issues, links, screenshots, etc.
+    validations:
+      required: false
