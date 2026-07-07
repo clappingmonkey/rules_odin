@@ -1,0 +1,98 @@
+# Release pipeline: full test matrix → source archive → SLSA attestation → GitHub Release.
+#
+# Triggered by:
+#   - Tag push (v*.*.*) — manual releases
+#   - workflow_call from tag.yaml — automated releases
+#
+# Pipeline:
+#   test (3 OS × 3 Bazel = 9 jobs) → release (release_ruleset.yaml, skips built-in test)
+#                                   → finalize (undraft the GitHub Release)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_call:
+    inputs:
+      tag_name:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Full test matrix — validates the tagged commit across all platforms.
+  # Same matrix as check.yaml to ensure release quality.
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test (${{ matrix.os }}, Bazel ${{ matrix.bazel }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+        bazel: ["7.7.1", "8.7.0", "9.1.1"]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.tag_name || github.ref }}
+
+      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+        with:
+          bazelisk-cache: true
+          disk-cache: release-${{ matrix.os }}-${{ matrix.bazel }}
+          repository-cache: true
+
+      - name: Pin Bazel version
+        shell: bash
+        run: echo "${{ matrix.bazel }}" > .bazelversion
+
+      - name: Build rules_odin
+        shell: bash
+        run: bazel build //...
+
+      - name: Smoke test (e2e)
+        shell: bash
+        working-directory: e2e/smoke
+        run: |
+          echo "${{ matrix.bazel }}" > .bazelversion
+          bazel build //...
+
+  # ---------------------------------------------------------------------------
+  # Release: calls the shared bazel-contrib release_ruleset workflow.
+  # Skips its built-in test (already validated by matrix above).
+  # Creates a DRAFT GitHub Release with SLSA L2 attestations.
+  # ---------------------------------------------------------------------------
+  release:
+    name: Release
+    needs: test
+    uses: bazel-contrib/.github/.github/workflows/release_ruleset.yaml@v7.7.0
+    with:
+      release_files: rules_odin-*.tar.gz
+      prerelease: false
+      draft: true
+      generate_release_notes: true
+      bazel_test_command: "echo 'Tests already passed in matrix'"
+      tag_name: ${{ inputs.tag_name || github.ref_name }}
+
+  # ---------------------------------------------------------------------------
+  # Finalize: publish the draft release after attestations are attached.
+  # ---------------------------------------------------------------------------
+  finalize:
+    name: Publish release
+    needs: release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag_name || github.ref_name }}
+        run: gh release edit "$TAG" --draft=false

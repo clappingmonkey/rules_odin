@@ -1,0 +1,13 @@
+# Typos configuration for rules_odin.
+# See: https://github.com/crate-ci/typos
+
+[default.extend-words]
+# Odin language keywords and identifiers that look like typos
+cstring = "cstring"
+
+[files]
+extend-exclude = [
+    "MODULE.bazel.lock",
+    "*.tar.gz",
+    "*.zip",
+]

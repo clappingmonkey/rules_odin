@@ -1,0 +1,115 @@
+# CI checks for pull requests, merge queue, and push to main.
+#
+# Structure:
+#   lint  → pre-commit (buildifier) + typos
+#   test  → 3 OS × 3 Bazel versions (build + e2e smoke)
+#   gate  → aggregates all results for branch protection
+#
+# Branch protection should require the "gate" job to pass.
+
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+# Concurrency: cancel in-progress PR runs on new push, never cancel main.
+# Groups by PR number (survives force-pushes) or ref_name (for main/merge_group).
+concurrency:
+  group: >-
+    ${{ github.workflow }}::${{
+      github.event.pull_request.number > 0
+        && format('pr-{0}', github.event.pull_request.number)
+        || github.ref_name
+    }}${{
+      github.ref_name == 'main'
+        && format('::{0}', github.run_id)
+        || ''
+    }}
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
+
+# Default: no permissions. Each job grants only what it needs.
+permissions: {}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint: pre-commit (buildifier) + typos
+  # Fast, cheap — gives quick feedback before the matrix runs.
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # Runs buildifier (format + lint) via pre-commit hooks.
+      # Typos is handled separately below for faster, independent feedback.
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+        env:
+          SKIP: typos
+
+      - uses: crate-ci/typos@bee27e3a4fd1ea2111cf90ab89cd076c870fce14 # v1.48.0
+
+  # ---------------------------------------------------------------------------
+  # Test: build rules_odin + e2e smoke test across OS/Bazel matrix.
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test (${{ matrix.os }}, Bazel ${{ matrix.bazel }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+        bazel: ["7.7.1", "8.7.0", "9.1.1"]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+        with:
+          bazelisk-cache: true
+          disk-cache: >-
+            ${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ matrix.os }}-${{ matrix.bazel }}
+          repository-cache: true
+
+      - name: Pin Bazel version
+        shell: bash
+        run: echo "${{ matrix.bazel }}" > .bazelversion
+
+      - name: Build rules_odin
+        shell: bash
+        run: bazel build //...
+
+      - name: Smoke test (e2e)
+        shell: bash
+        working-directory: e2e/smoke
+        run: |
+          echo "${{ matrix.bazel }}" > .bazelversion
+          bazel build //...
+
+  # ---------------------------------------------------------------------------
+  # Gate: single status check for branch protection.
+  # Runs even if upstream jobs fail (if: always()).
+  # ---------------------------------------------------------------------------
+  gate:
+    name: gate
+    needs: [lint, test]
+    runs-on: ubuntu-24.04
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.lint.result }}" != "success" || \
+                "${{ needs.test.result }}" != "success" ]]; then
+            echo "::error::CI failed: lint=${{ needs.lint.result }}, test=${{ needs.test.result }}"
+            exit 1
+          fi
+          echo "All checks passed."

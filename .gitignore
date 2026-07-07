@@ -20,6 +20,7 @@ Thumbs.db
 
 # Personal TODO
 TODO.md
+AGENTS.md
 
 # Bazel user-specific
 user.bazelrc
