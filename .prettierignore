@@ -1,0 +1,27 @@
+# Bazel — handled by buildifier
+*.bzl
+BUILD
+BUILD.bazel
+WORKSPACE
+WORKSPACE.bzlmod
+MODULE.bazel
+MODULE.bazel.lock
+.bazelversion
+.bazelrc
+
+# Generated / cache
+bazel-*
+**/bazel-*
+.venv/
+*.runfiles/
+
+# Odin source — not prettier's domain
+*.odin
+
+# Plain text (not Markdown/YAML)
+LICENSE
+NOTICE
+
+# Personal (gitignored anyway, but exclude for safety)
+TODO.md
+AGENTS.md
