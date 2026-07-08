@@ -39,8 +39,8 @@ Supported version matrix for `rules_odin`.
 rules_odin downloads the Odin compiler hermetically, but the **linker** must be
 available on the host:
 
-| Platform | Required Host Tool                                |
-| -------- | ------------------------------------------------- |
-| Linux    | `clang` (via system package manager)              |
-| macOS    | Xcode Command Line Tools (`xcode-select --install`)|
-| Windows  | MSVC Build Tools (Visual Studio)                  |
+| Platform | Required Host Tool                                  |
+| -------- | --------------------------------------------------- |
+| Linux    | `clang` (via system package manager)                |
+| macOS    | Xcode Command Line Tools (`xcode-select --install`) |
+| Windows  | MSVC Build Tools (Visual Studio)                    |

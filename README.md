@@ -61,15 +61,15 @@ import greetings "greetings:lib"  // collection:name → lib/ directory
 
 Compiles an Odin package (directory of `.odin` files) into an executable.
 
-| Attribute              | Type          | Default      | Description                              |
-| ---------------------- | ------------- | ------------ | ---------------------------------------- |
-| `srcs`                 | label_list    | **required** | Odin source files (must share a package) |
-| `deps`                 | label_list    | `[]`         | `odin_library` targets to import as collections |
-| `optimization`         | string        | `"none"`     | One of: none, minimal, speed, size, aggressive |
-| `debug`                | bool          | `True`       | Include debug symbols                    |
-| `defines`              | string_dict   | `{}`         | Compile-time `-define:` values           |
-| `extra_compiler_flags` | string_list   | `[]`         | Additional flags passed to `odin build`  |
-| `vet`                  | bool          | `False`      | Enable `-vet` checks                     |
+| Attribute              | Type        | Default      | Description                                     |
+| ---------------------- | ----------- | ------------ | ----------------------------------------------- |
+| `srcs`                 | label_list  | **required** | Odin source files (must share a package)        |
+| `deps`                 | label_list  | `[]`         | `odin_library` targets to import as collections |
+| `optimization`         | string      | `"none"`     | One of: none, minimal, speed, size, aggressive  |
+| `debug`                | bool        | `True`       | Include debug symbols                           |
+| `defines`              | string_dict | `{}`         | Compile-time `-define:` values                  |
+| `extra_compiler_flags` | string_list | `[]`         | Additional flags passed to `odin build`         |
+| `vet`                  | bool        | `False`      | Enable `-vet` checks                            |
 
 ### `odin_library`
 
@@ -81,10 +81,10 @@ Groups Odin source files into a library that can be imported by `odin_binary` ta
 
 ## Supported Odin Versions
 
-| Version      | Status    |
-| ------------ | --------- |
-| dev-2026-06  | Supported |
-| dev-2026-05  | Supported |
+| Version     | Status    |
+| ----------- | --------- |
+| dev-2026-06 | Supported |
+| dev-2026-05 | Supported |
 
 See [COMPATIBILITY.md](COMPATIBILITY.md) for the full version matrix.
 
