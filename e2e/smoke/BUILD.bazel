@@ -1,4 +1,4 @@
-load("@rules_odin//odin:defs.bzl", "odin_binary", "odin_library")
+load("@rules_odin//odin:defs.bzl", "odin_binary", "odin_library", "odin_test")
 
 odin_library(
     name = "greetings",
@@ -8,5 +8,11 @@ odin_library(
 odin_binary(
     name = "hello",
     srcs = glob(["hello/*.odin"]),
+    deps = [":greetings"],
+)
+
+odin_test(
+    name = "smoke_test",
+    srcs = glob(["tests/*.odin"]),
     deps = [":greetings"],
 )

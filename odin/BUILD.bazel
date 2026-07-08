@@ -14,7 +14,11 @@ toolchain_type(
 bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],
-    deps = ["//odin/private:binary_bzl"],
+    deps = [
+        "//odin/private:binary_bzl",
+        "//odin/private:library_bzl",
+        "//odin/private:test_bzl",
+    ],
 )
 
 bzl_library(
