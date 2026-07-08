@@ -93,7 +93,14 @@ jobs:
         working-directory: e2e/smoke
         run: |
           echo "${{ matrix.bazel }}" > .bazelversion
-          bazel build //...
+          bazel test //...
+
+      - name: Failure propagation test (e2e)
+        shell: bash
+        working-directory: e2e/failure_propagation
+        run: |
+          echo "${{ matrix.bazel }}" > .bazelversion
+          bazel test //...
 
   # ---------------------------------------------------------------------------
   # Gate: single status check for branch protection.

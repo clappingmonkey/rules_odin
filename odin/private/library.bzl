@@ -8,17 +8,7 @@ The collection root is the parent directory of the package directory,
 so that `import "<name>:<pkg_dir_basename>"` resolves correctly.
 """
 
-load("//odin/private:common.bzl", "get_package_dir")
-
-OdinLibraryInfo = provider(
-    doc = "Information about an Odin library (source aggregation for collection imports).",
-    fields = {
-        "srcs": "depset: Odin source files for this library.",
-        "collection_name": "String: Name used in `-collection:<name>=<root>` (the label name).",
-        "collection_root": "String: Parent directory of the package directory, passed as the collection root path.",
-        "pkg_dir": "String: Package directory path (dirname of the source files).",
-    },
-)
+load("//odin/private:common.bzl", "OdinLibraryInfo", "get_package_dir")
 
 def _odin_library_impl(ctx):
     srcs = ctx.files.srcs
