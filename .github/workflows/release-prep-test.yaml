@@ -1,0 +1,84 @@
+# Regression test for the release source archive preparation script.
+#
+# Only runs when release_prep.sh or MODULE.bazel changes (path filter).
+# Not part of the main gate — doesn't block unrelated PRs.
+#
+# Validates:
+#   - Archive naming (includes 'v' prefix)
+#   - MODULE.bazel version patching (only module() block, not bazel_dep)
+#   - Release notes output
+#   - Graceful failures (no args, invalid tag format)
+
+name: Release prep test
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/release_prep.sh"
+      - ".github/workflows/release-prep-test.yaml"
+      - "MODULE.bazel"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release_prep.sh"
+      - ".github/workflows/release-prep-test.yaml"
+      - "MODULE.bazel"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Validate release_prep.sh
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Test with synthetic tag
+        run: |
+          .github/workflows/release_prep.sh v99.0.0 > /tmp/notes.txt
+
+          # Assert archive name
+          test -f rules_odin-v99.0.0.tar.gz
+
+          # Assert MODULE.bazel version patched inside module() block
+          MODULE=$(tar -xzf rules_odin-v99.0.0.tar.gz -O rules_odin-99.0.0/MODULE.bazel)
+          echo "$MODULE" | sed -n '/^module(/,/^)/p' | grep -q 'version = "99.0.0"'
+
+          # Assert bazel_dep versions NOT changed
+          echo "$MODULE" | grep -q 'version = "1.7.1"'
+          echo "$MODULE" | grep -q 'version = "0.0.10"'
+
+          # Assert release notes mention correct version
+          grep -q 'version = "99.0.0"' /tmp/notes.txt
+
+          rm -f rules_odin-v99.0.0.tar.gz
+          echo "Happy path: PASSED"
+
+      - name: Test no-arg invocation fails
+        run: |
+          if .github/workflows/release_prep.sh 2>/dev/null; then
+            echo "::error::Expected failure with no args"
+            exit 1
+          fi
+          echo "No-arg rejection: PASSED"
+
+      - name: Test invalid tag format fails
+        run: |
+          if .github/workflows/release_prep.sh "not-a-tag" 2>/dev/null; then
+            echo "::error::Expected failure with invalid tag 'not-a-tag'"
+            exit 1
+          fi
+
+          if .github/workflows/release_prep.sh "main" 2>/dev/null; then
+            echo "::error::Expected failure with branch name 'main'"
+            exit 1
+          fi
+
+          if .github/workflows/release_prep.sh "0.2.0" 2>/dev/null; then
+            echo "::error::Expected failure with tag missing 'v' prefix"
+            exit 1
+          fi
+          echo "Invalid tag rejection: PASSED"
