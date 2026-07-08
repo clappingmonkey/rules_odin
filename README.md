@@ -12,6 +12,8 @@ Bazel rules for the [Odin programming language](https://odin-lang.org/).
 ## Features
 
 - Hermetic Odin toolchain management (no system install required)
+- `odin_binary` rule for compiling executables
+- `odin_library` rule for sharing packages via collection imports
 - bzlmod-first (no WORKSPACE file needed)
 - Multi-platform support: Linux (x86-64, ARM64), macOS (x86-64, ARM64), Windows (x86-64)
 - Bazel 7.x, 8.x, and 9.x compatible
@@ -33,12 +35,24 @@ register_toolchains("@odin_toolchains//:all")
 Then in your `BUILD.bazel`:
 
 ```starlark
-load("@rules_odin//odin:defs.bzl", "odin_binary")
+load("@rules_odin//odin:defs.bzl", "odin_binary", "odin_library")
+
+odin_library(
+    name = "greetings",
+    srcs = glob(["lib/*.odin"]),
+)
 
 odin_binary(
     name = "hello",
-    srcs = glob(["*.odin"]),
+    srcs = glob(["hello/*.odin"]),
+    deps = [":greetings"],
 )
+```
+
+Import the library in your Odin code using the collection name (the `odin_library` target name) and the package directory name:
+
+```odin
+import greetings "greetings:lib"  // collection:name → lib/ directory
 ```
 
 ## Rules
@@ -50,11 +64,20 @@ Compiles an Odin package (directory of `.odin` files) into an executable.
 | Attribute              | Type          | Default      | Description                              |
 | ---------------------- | ------------- | ------------ | ---------------------------------------- |
 | `srcs`                 | label_list    | **required** | Odin source files (must share a package) |
+| `deps`                 | label_list    | `[]`         | `odin_library` targets to import as collections |
 | `optimization`         | string        | `"none"`     | One of: none, minimal, speed, size, aggressive |
 | `debug`                | bool          | `True`       | Include debug symbols                    |
 | `defines`              | string_dict   | `{}`         | Compile-time `-define:` values           |
 | `extra_compiler_flags` | string_list   | `[]`         | Additional flags passed to `odin build`  |
 | `vet`                  | bool          | `False`      | Enable `-vet` checks                     |
+
+### `odin_library`
+
+Groups Odin source files into a library that can be imported by `odin_binary` targets via Odin's collection system. The library's target name becomes the collection name.
+
+| Attribute | Type       | Default      | Description                              |
+| --------- | ---------- | ------------ | ---------------------------------------- |
+| `srcs`    | label_list | **required** | Odin source files (must share a package) |
 
 ## Supported Odin Versions
 
