@@ -14,6 +14,7 @@ Bazel rules for the [Odin programming language](https://odin-lang.org/).
 - Hermetic Odin toolchain management (no system install required)
 - `odin_binary` rule for compiling executables
 - `odin_library` rule for sharing packages via collection imports
+- `odin_test` rule for running `@(test)`-annotated Odin procedures
 - bzlmod-first (no WORKSPACE file needed)
 - Multi-platform support: Linux (x86-64, ARM64), macOS (x86-64, ARM64), Windows (x86-64)
 - Bazel 7.x, 8.x, and 9.x compatible
@@ -35,7 +36,7 @@ register_toolchains("@odin_toolchains//:all")
 Then in your `BUILD.bazel`:
 
 ```starlark
-load("@rules_odin//odin:defs.bzl", "odin_binary", "odin_library")
+load("@rules_odin//odin:defs.bzl", "odin_binary", "odin_library", "odin_test")
 
 odin_library(
     name = "greetings",
@@ -45,6 +46,12 @@ odin_library(
 odin_binary(
     name = "hello",
     srcs = glob(["hello/*.odin"]),
+    deps = [":greetings"],
+)
+
+odin_test(
+    name = "greetings_test",
+    srcs = glob(["tests/*.odin"]),
     deps = [":greetings"],
 )
 ```
@@ -78,6 +85,31 @@ Groups Odin source files into a library that can be imported by `odin_binary` ta
 | Attribute | Type       | Default      | Description                              |
 | --------- | ---------- | ------------ | ---------------------------------------- |
 | `srcs`    | label_list | **required** | Odin source files (must share a package) |
+
+### `odin_test`
+
+Compiles and runs Odin tests using the built-in test runner. Source files must contain at least one procedure annotated with `@(test)`. The test binary is compiled at build time (cacheable) and executed by Bazel's test runner.
+
+| Attribute              | Type        | Default      | Description                                     |
+| ---------------------- | ----------- | ------------ | ----------------------------------------------- |
+| `srcs`                 | label_list  | **required** | Odin source files with `@(test)` procedures     |
+| `deps`                 | label_list  | `[]`         | `odin_library` targets to import as collections |
+| `optimization`         | string      | `"none"`     | One of: none, minimal, speed, size, aggressive  |
+| `debug`                | bool        | `True`       | Include debug symbols                           |
+| `defines`              | string_dict | `{}`         | Compile-time `-define:` values (see below)      |
+| `extra_compiler_flags` | string_list | `[]`         | Additional flags passed to the Odin compiler    |
+| `vet`                  | bool        | `False`      | Enable `-vet` checks                            |
+
+**Test runner defines** (passed via `defines`):
+
+| Key                            | Default    | Description                           |
+| ------------------------------ | ---------- | ------------------------------------- |
+| `ODIN_TEST_FANCY`              | `false`    | ANSI progress display (auto-disabled) |
+| `ODIN_TEST_THREADS`            | `0` (auto) | Worker thread count                   |
+| `ODIN_TEST_NAMES`              | —          | Comma-separated test filter           |
+| `ODIN_TEST_RANDOM_SEED`        | random     | Fixed seed for reproducibility        |
+| `ODIN_TEST_FAIL_ON_BAD_MEMORY` | `false`    | Treat memory leaks as failures        |
+| `ODIN_TEST_LOG_LEVEL`          | `info`     | Minimum log level                     |
 
 ## Supported Odin Versions
 

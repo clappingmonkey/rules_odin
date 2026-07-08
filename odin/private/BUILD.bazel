@@ -9,9 +9,26 @@ exports_files([
 ])
 
 bzl_library(
+    name = "common_bzl",
+    srcs = ["common.bzl"],
+)
+
+bzl_library(
+    name = "library_bzl",
+    srcs = ["library.bzl"],
+    deps = [":common_bzl"],
+)
+
+bzl_library(
     name = "binary_bzl",
     srcs = ["binary.bzl"],
-    deps = ["//odin:toolchain"],
+    deps = [":common_bzl"],
+)
+
+bzl_library(
+    name = "test_bzl",
+    srcs = ["test.bzl"],
+    deps = [":common_bzl"],
 )
 
 bzl_library(
