@@ -1,29 +1,7 @@
 """Implementation of the odin_binary rule."""
 
-def _get_package_dir(srcs):
-    """Determine the package directory from source files.
-
-    All source files must reside in the same directory (Odin compiles
-    entire directories as a single package).
-
-    Returns:
-        The path to the package directory relative to the exec root.
-    """
-    if not srcs:
-        fail("odin_binary requires at least one source file in 'srcs'.")
-
-    dirs = {}
-    for src in srcs:
-        dirs[src.dirname] = True
-
-    if len(dirs) > 1:
-        fail(
-            "All 'srcs' in an odin_binary must be in the same directory " +
-            "(Odin compiles entire directories as a package). " +
-            "Found files in: " + ", ".join(sorted(dirs.keys())),
-        )
-
-    return srcs[0].dirname
+load("//odin/private:common.bzl", "get_package_dir")
+load("//odin/private:library.bzl", "OdinLibraryInfo")
 
 def _odin_binary_impl(ctx):
     toolchain = ctx.toolchains["@rules_odin//odin:toolchain_type"]
@@ -38,7 +16,7 @@ def _odin_binary_impl(ctx):
     out = ctx.actions.declare_file(out_name)
 
     srcs = ctx.files.srcs
-    pkg_dir = _get_package_dir(srcs)
+    pkg_dir = get_package_dir(srcs, "odin_binary")
 
     # Build the compiler arguments
     args = ctx.actions.args()
@@ -67,16 +45,37 @@ def _odin_binary_impl(ctx):
     for flag in ctx.attr.extra_compiler_flags:
         args.add(flag)
 
-    # Collect all inputs: sources + entire SDK (for core/base/vendor imports)
+    # Collect library deps: add their source files to inputs and
+    # register each as a collection for Odin's import resolution.
+    dep_srcs = []
+    seen_collections = {}
+    for dep in ctx.attr.deps:
+        lib_info = dep[OdinLibraryInfo]
+        name = lib_info.collection_name
+        if name in seen_collections:
+            fail(
+                "odin_binary '{}' has duplicate collection name '{}' ".format(
+                    ctx.label.name,
+                    name,
+                ) + "from deps '{}' and '{}'. ".format(
+                    seen_collections[name],
+                    dep.label,
+                ) + "Odin collection names must be unique within a binary.",
+            )
+        seen_collections[name] = dep.label
+        dep_srcs.extend(lib_info.srcs.to_list())
+        args.add("-collection:{}={}".format(
+            name,
+            lib_info.collection_root,
+        ))
+
+    # Collect all inputs: sources + library dep srcs + entire SDK
     inputs = depset(
-        direct = srcs,
+        direct = srcs + dep_srcs,
         transitive = [odin_info.all_files],
     )
 
     # Set ODIN_ROOT so the compiler finds core/, base/, vendor/.
-    # ODIN_ROOT must point to the directory containing the compiler binary,
-    # which is also where core/, base/, vendor/ are located after extraction.
-    # We derive it from the compiler file's dirname (works inside the sandbox).
     env = {}
     if odin_info.compiler:
         env["ODIN_ROOT"] = odin_info.compiler.dirname
@@ -108,6 +107,11 @@ odin_binary = rule(
             doc = "Odin source files. All files must be in the same directory (one Odin package).",
             allow_files = [".odin"],
             mandatory = True,
+        ),
+        "deps": attr.label_list(
+            doc = "Odin library targets (odin_library) to import as collections.",
+            providers = [OdinLibraryInfo],
+            default = [],
         ),
         "out": attr.string(
             doc = "Output binary name. Defaults to the rule name.",
