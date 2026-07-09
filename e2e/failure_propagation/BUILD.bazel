@@ -1,0 +1,20 @@
+load("@rules_odin//odin:defs.bzl", "odin_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Intentionally failing odin_test — excluded from bazel test //...
+# Used only as a data dep for the failure_propagation_test below.
+odin_test(
+    name = "should_fail",
+    srcs = glob(["tests_fail/*.odin"]),
+    tags = ["manual"],
+)
+
+# Validates that the failing test binary exits non-zero.
+# Proves Bazel correctly reports FAILED for odin_test targets.
+sh_test(
+    name = "failure_propagation_test",
+    srcs = ["check_exit_code.sh"],
+    args = ["$(rlocationpath :should_fail)"],
+    data = [":should_fail"],
+    deps = ["@rules_shell//shell/runfiles"],
+)
