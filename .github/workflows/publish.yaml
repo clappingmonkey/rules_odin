@@ -18,6 +18,9 @@ on:
       release_artifacts_run_id:
         required: true
         type: string
+    secrets:
+      BCR_PUBLISH_TOKEN:
+        required: true
 
 jobs:
   publish:
