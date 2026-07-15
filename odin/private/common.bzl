@@ -132,6 +132,10 @@ def compile_odin_binary(ctx, srcs, build_mode, out_file, extra_defines = {}):
     if odin_info.compiler:
         env["ODIN_ROOT"] = odin_info.compiler.dirname
 
+    # SPIKE EXPERIMENT (do not merge): test whether dropping the host-env leak
+    # works across the full CI matrix. Bazel's strict-action-env static PATH
+    # (/bin:/usr/bin:/sbin:/usr/sbin) contains clang/ld on GH Linux+macOS
+    # runners, so Odin's linker discovery may work without leaking the host env.
     ctx.actions.run(
         executable = odin_info.compiler,
         arguments = [args],
@@ -142,7 +146,7 @@ def compile_odin_binary(ctx, srcs, build_mode, out_file, extra_defines = {}):
         progress_message = "Compiling Odin {} %{{label}}".format(
             "binary" if build_mode == "exe" else "test",
         ),
-        use_default_shell_env = True,
+        use_default_shell_env = False,
     )
 
     return DefaultInfo(
