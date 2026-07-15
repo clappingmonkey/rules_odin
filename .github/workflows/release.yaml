@@ -91,6 +91,11 @@ jobs:
     name: Publish to BCR
     needs: release
     uses: ./.github/workflows/publish.yaml
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      actions: read
     with:
       tag_name: ${{ inputs.tag_name || github.ref_name }}
       release_artifacts_run_id: ${{ github.run_id }}
