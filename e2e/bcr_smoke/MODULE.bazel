@@ -1,11 +1,26 @@
-"""BCR smoke test workspace — uses rules_odin from the Bazel Central Registry."""
+"""BCR test module — exercised by BCR presubmit via .bcr/presubmit.yml."""
 
 module(
     name = "rules_odin_bcr_smoke_test",
     version = "0.0.0",
 )
 
-bazel_dep(name = "rules_odin", version = "0.3.1")
+# This is the `bcr_test_module` referenced by `.bcr/presubmit.yml`. During BCR
+# presubmit, the registry extracts the tagged rules_odin source and runs this
+# module from within it. The `local_path_override` below resolves `rules_odin`
+# to that extracted tree, replacing registry resolution entirely, so no
+# `version` is needed on the `bazel_dep`. Omitting the version follows the
+# idiomatic BCR test module pattern and avoids coupling this file to a specific
+# published version. (The previous breakage was a pinned version with NO
+# override: Bazel then queried the registry for a version that was not yet
+# published and presubmit failed.) See the BCR docs "Test module" section and
+# the rules_jvm_external example.
+bazel_dep(name = "rules_odin")
+local_path_override(
+    module_name = "rules_odin",
+    path = "../..",
+)
+
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "platforms", version = "0.0.10")
 
