@@ -5,8 +5,9 @@
 #   - workflow_call from tag.yaml — automated releases
 #
 # Pipeline:
-#   test (3 OS × 3 Bazel = 9 jobs) → release (release_ruleset.yaml, skips built-in test)
-#                                   → finalize (undraft the GitHub Release)
+#   test (4 OS × 3 Bazel = 12 jobs) → release (release_ruleset.yaml, draft + SLSA)
+#                                    → publish (publish.yaml, opens BCR PR while draft)
+#                                    → finalize (undraft the release after publish succeeds)
 
 name: Release
 
@@ -82,11 +83,25 @@ jobs:
       tag_name: ${{ inputs.tag_name || github.ref_name }}
 
   # ---------------------------------------------------------------------------
-  # Finalize: publish the draft release after attestations are attached.
+  # Publish to BCR: opens a draft PR against bazelbuild/bazel-central-registry.
+  # Must run while the release is still draft — publish-to-bcr downloads release
+  # artifacts and uploads attestations to a draft release.
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Publish to BCR
+    needs: release
+    uses: ./.github/workflows/publish.yaml
+    with:
+      tag_name: ${{ inputs.tag_name || github.ref_name }}
+      release_artifacts_run_id: ${{ github.run_id }}
+
+  # ---------------------------------------------------------------------------
+  # Finalize: publish the draft release after BCR PR is opened + attestations
+  # attached. Runs only after publish succeeds.
   # ---------------------------------------------------------------------------
   finalize:
     name: Publish release
-    needs: release
+    needs: [release, publish]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
