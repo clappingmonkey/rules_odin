@@ -1,0 +1,16 @@
+"""BCR smoke test workspace — uses rules_odin from the Bazel Central Registry."""
+
+module(
+    name = "rules_odin_bcr_smoke_test",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "rules_odin", version = "0.3.1")
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "platforms", version = "0.0.10")
+
+odin = use_extension("@rules_odin//odin:extensions.bzl", "odin")
+odin.toolchain(odin_version = "dev-2026-06")
+use_repo(odin, "odin_toolchains")
+
+register_toolchains("@odin_toolchains//:all")
