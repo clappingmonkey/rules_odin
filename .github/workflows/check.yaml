@@ -58,7 +58,8 @@ jobs:
       - uses: crate-ci/typos@bee27e3a4fd1ea2111cf90ab89cd076c870fce14 # v1.48.0
 
   # ---------------------------------------------------------------------------
-  # Test: build rules_odin + e2e smoke test across OS/Bazel matrix.
+  # Test: build rules_odin + e2e smoke and failure propagation tests
+  # across OS/Bazel matrix.
   # ---------------------------------------------------------------------------
   test:
     name: Test (${{ matrix.os }}, Bazel ${{ matrix.bazel }})
