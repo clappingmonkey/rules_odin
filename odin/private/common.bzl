@@ -10,6 +10,29 @@ OdinLibraryInfo = provider(
     },
 )
 
+# SPIKE EXPERIMENT (do not merge): optional attrs that, when set, point Odin's
+# linker driver at a hermetic clang+lld and a pinned sysroot so Linux links
+# without leaking host clang/ld/libc. Empty defaults = no behavior change, so
+# other workspaces (bcr_smoke, failure_propagation) are unaffected and no repo
+# dependency on @llvm_toolchain_llvm is forced.
+HERMETIC_SPIKE_ATTRS = {
+    "hermetic_clang": attr.label(
+        doc = "SPIKE: single hermetic clang executable to use as Odin's linker driver (ODIN_CLANG_PATH).",
+        allow_single_file = True,
+        default = None,
+    ),
+    "hermetic_toolchain_files": attr.label(
+        doc = "SPIKE: filegroup of clang/lld/lib files to stage as action inputs.",
+        allow_files = True,
+        default = None,
+    ),
+    "hermetic_sysroot": attr.label(
+        doc = "SPIKE: filegroup of the pinned sysroot tree to link against (--sysroot).",
+        allow_files = True,
+        default = None,
+    ),
+}
+
 def get_package_dir(srcs, rule_name):
     """Determine the package directory from source files.
 
@@ -121,21 +144,46 @@ def compile_odin_binary(ctx, srcs, build_mode, out_file, extra_defines = {}):
             lib_info.collection_root,
         ))
 
-    # Collect all inputs: sources + library dep srcs + entire SDK.
-    inputs = depset(
-        direct = srcs + dep_srcs,
-        transitive = [odin_info.all_files],
-    )
-
     # Set ODIN_ROOT so the compiler finds core/, base/, vendor/.
     env = {}
     if odin_info.compiler:
         env["ODIN_ROOT"] = odin_info.compiler.dirname
 
-    # SPIKE EXPERIMENT (do not merge): test whether dropping the host-env leak
-    # works across the full CI matrix. Bazel's strict-action-env static PATH
-    # (/bin:/usr/bin:/sbin:/usr/sbin) contains clang/ld on GH Linux+macOS
-    # runners, so Odin's linker discovery may work without leaking the host env.
+    # SPIKE EXPERIMENT (do not merge): hermetic Linux linking.
+    # When the hermetic_* attrs are set (Linux only, via e2e/smoke), point
+    # Odin's linker driver at a hermetic clang (ODIN_CLANG_PATH), force
+    # -linker:lld so clang uses the bundled ld.lld, and pass --sysroot so
+    # crt/glibc/libgcc resolve from the pinned tree, not the host. The clang,
+    # lld, runtime libs, and sysroot are staged as action inputs.
+    hermetic_inputs = []
+    hermetic_clang = getattr(ctx.file, "hermetic_clang", None)
+    if hermetic_clang:
+        env["ODIN_CLANG_PATH"] = hermetic_clang.path
+        args.add("-linker:lld")
+
+        # Point the link at the pinned sysroot (its package directory).
+        sysroot_files = getattr(ctx.files, "hermetic_sysroot", [])
+        if sysroot_files:
+            # The sysroot filegroup label is `//sysroot:...`; the tree root is
+            # the directory that contains the extracted sysroot package.
+            sysroot_root = sysroot_files[0].dirname
+            for f in sysroot_files:
+                # Find the shortest path prefix = the sysroot package root.
+                if len(f.dirname) < len(sysroot_root):
+                    sysroot_root = f.dirname
+            args.add("-extra-linker-flags:--sysroot=" + sysroot_root)
+            hermetic_inputs.extend(sysroot_files)
+
+        toolchain_files = getattr(ctx.files, "hermetic_toolchain_files", [])
+        hermetic_inputs.extend(toolchain_files)
+
+    # Collect all inputs: sources + library dep srcs + entire SDK + any
+    # hermetic toolchain/sysroot files.
+    inputs = depset(
+        direct = srcs + dep_srcs + hermetic_inputs,
+        transitive = [odin_info.all_files],
+    )
+
     ctx.actions.run(
         executable = odin_info.compiler,
         arguments = [args],

@@ -1,5 +1,42 @@
 load("@rules_odin//odin:defs.bzl", "odin_binary", "odin_library", "odin_test")
 
+# SPIKE EXPERIMENT (do not merge): on Linux, point Odin's linker driver at the
+# hermetic toolchains_llvm clang+lld and the pinned Chromium sysroot. On
+# macOS/Windows these select to empty (None / []), so those platforms keep the
+# existing host-linker path unchanged.
+
+config_setting(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+config_setting(
+    name = "linux_aarch64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+_HERMETIC_CLANG = select({
+    "@platforms//os:linux": "@llvm_toolchain_llvm//:bin/clang",
+    "//conditions:default": None,
+})
+
+_HERMETIC_TOOLCHAIN_FILES = select({
+    "@platforms//os:linux": "@llvm_toolchain_llvm//:bin",
+    "//conditions:default": None,
+})
+
+_HERMETIC_SYSROOT = select({
+    ":linux_x86_64": "@org_chromium_sysroot_linux_x64//sysroot",
+    ":linux_aarch64": "@org_chromium_sysroot_linux_arm64//sysroot",
+    "//conditions:default": None,
+})
+
 odin_library(
     name = "greetings",
     srcs = glob(["lib/*.odin"]),
@@ -8,11 +45,17 @@ odin_library(
 odin_binary(
     name = "hello",
     srcs = glob(["hello/*.odin"]),
+    hermetic_clang = _HERMETIC_CLANG,
+    hermetic_sysroot = _HERMETIC_SYSROOT,
+    hermetic_toolchain_files = _HERMETIC_TOOLCHAIN_FILES,
     deps = [":greetings"],
 )
 
 odin_test(
     name = "smoke_test",
     srcs = glob(["tests/*.odin"]),
+    hermetic_clang = _HERMETIC_CLANG,
+    hermetic_sysroot = _HERMETIC_SYSROOT,
+    hermetic_toolchain_files = _HERMETIC_TOOLCHAIN_FILES,
     deps = [":greetings"],
 )
