@@ -37,6 +37,30 @@ _HERMETIC_SYSROOT = select({
     "//conditions:default": None,
 })
 
+# Per-arch linker flags for the Chromium debian_stretch (GCC 6) sysroot. The
+# {SYSROOT} placeholder is substituted by common.bzl with the staged sysroot
+# tree root. libc.so/libm.so/libgcc_s.so are GNU-ld linker scripts with
+# absolute paths, so --sysroot is required in addition to -B/-L.
+_HERMETIC_LINKER_FLAGS = select({
+    ":linux_x86_64": [
+        "--target=x86_64-linux-gnu",
+        "--sysroot={SYSROOT}",
+        "-B{SYSROOT}/usr/lib/gcc/x86_64-linux-gnu/6/",
+        "-L{SYSROOT}/usr/lib/gcc/x86_64-linux-gnu/6",
+        "-L{SYSROOT}/usr/lib/x86_64-linux-gnu",
+        "-L{SYSROOT}/lib/x86_64-linux-gnu",
+    ],
+    ":linux_aarch64": [
+        "--target=aarch64-linux-gnu",
+        "--sysroot={SYSROOT}",
+        "-B{SYSROOT}/usr/lib/gcc/aarch64-linux-gnu/6/",
+        "-L{SYSROOT}/usr/lib/gcc/aarch64-linux-gnu/6",
+        "-L{SYSROOT}/usr/lib/aarch64-linux-gnu",
+        "-L{SYSROOT}/lib/aarch64-linux-gnu",
+    ],
+    "//conditions:default": [],
+})
+
 odin_library(
     name = "greetings",
     srcs = glob(["lib/*.odin"]),
@@ -46,6 +70,7 @@ odin_binary(
     name = "hello",
     srcs = glob(["hello/*.odin"]),
     hermetic_clang = _HERMETIC_CLANG,
+    hermetic_linker_flags = _HERMETIC_LINKER_FLAGS,
     hermetic_sysroot = _HERMETIC_SYSROOT,
     hermetic_toolchain_files = _HERMETIC_TOOLCHAIN_FILES,
     deps = [":greetings"],
@@ -55,6 +80,7 @@ odin_test(
     name = "smoke_test",
     srcs = glob(["tests/*.odin"]),
     hermetic_clang = _HERMETIC_CLANG,
+    hermetic_linker_flags = _HERMETIC_LINKER_FLAGS,
     hermetic_sysroot = _HERMETIC_SYSROOT,
     hermetic_toolchain_files = _HERMETIC_TOOLCHAIN_FILES,
     deps = [":greetings"],

@@ -15,6 +15,11 @@ OdinLibraryInfo = provider(
 # without leaking host clang/ld/libc. Empty defaults = no behavior change, so
 # other workspaces (bcr_smoke, failure_propagation) are unaffected and no repo
 # dependency on @llvm_toolchain_llvm is forced.
+#
+# Option B (caller-driven): common.bzl stays "dumb" and forwards the caller's
+# hermetic_linker_flags verbatim via -extra-linker-flags, only substituting the
+# {SYSROOT} placeholder with the staged sysroot tree root. All target-triple,
+# gcc-version, and -B/-L path structure lives in the consuming workspace.
 HERMETIC_SPIKE_ATTRS = {
     "hermetic_clang": attr.label(
         doc = "SPIKE: single hermetic clang executable to use as Odin's linker driver (ODIN_CLANG_PATH).",
@@ -27,9 +32,13 @@ HERMETIC_SPIKE_ATTRS = {
         default = None,
     ),
     "hermetic_sysroot": attr.label(
-        doc = "SPIKE: filegroup of the pinned sysroot tree to link against (--sysroot).",
+        doc = "SPIKE: filegroup of the pinned sysroot tree to stage as action inputs. The {SYSROOT} placeholder in hermetic_linker_flags is replaced with this tree's root path.",
         allow_files = True,
         default = None,
+    ),
+    "hermetic_linker_flags": attr.string_list(
+        doc = "SPIKE: extra linker flags forwarded verbatim via -extra-linker-flags. Use {SYSROOT} as a placeholder for the staged sysroot root path.",
+        default = [],
     ),
 }
 
@@ -149,30 +158,38 @@ def compile_odin_binary(ctx, srcs, build_mode, out_file, extra_defines = {}):
     if odin_info.compiler:
         env["ODIN_ROOT"] = odin_info.compiler.dirname
 
-    # SPIKE EXPERIMENT (do not merge): hermetic Linux linking.
+    # SPIKE EXPERIMENT (do not merge): hermetic Linux linking (Option B).
     # When the hermetic_* attrs are set (Linux only, via e2e/smoke), point
     # Odin's linker driver at a hermetic clang (ODIN_CLANG_PATH), force
-    # -linker:lld so clang uses the bundled ld.lld, and pass --sysroot so
-    # crt/glibc/libgcc resolve from the pinned tree, not the host. The clang,
-    # lld, runtime libs, and sysroot are staged as action inputs.
+    # -linker:lld so clang uses the bundled ld.lld, and forward the caller's
+    # hermetic_linker_flags verbatim (only substituting {SYSROOT} with the
+    # staged sysroot tree root). The clang, lld, runtime libs, and sysroot are
+    # staged as action inputs.
     hermetic_inputs = []
     hermetic_clang = getattr(ctx.file, "hermetic_clang", None)
     if hermetic_clang:
         env["ODIN_CLANG_PATH"] = hermetic_clang.path
         args.add("-linker:lld")
 
-        # Point the link at the pinned sysroot (its package directory).
+        # Resolve the sysroot tree root (the directory containing the extracted
+        # sysroot) so callers can reference it via the {SYSROOT} placeholder.
         sysroot_files = getattr(ctx.files, "hermetic_sysroot", [])
+        sysroot_root = ""
         if sysroot_files:
-            # The sysroot filegroup label is `//sysroot:...`; the tree root is
-            # the directory that contains the extracted sysroot package.
-            sysroot_root = sysroot_files[0].dirname
+            sysroot_root = sysroot_files[0].path
             for f in sysroot_files:
-                # Find the shortest path prefix = the sysroot package root.
-                if len(f.dirname) < len(sysroot_root):
-                    sysroot_root = f.dirname
-            args.add("-extra-linker-flags:--sysroot=" + sysroot_root)
+                # The tree root is the shortest path among the staged files.
+                if len(f.path) < len(sysroot_root):
+                    sysroot_root = f.path
             hermetic_inputs.extend(sysroot_files)
+
+        # Forward the caller's extra linker flags verbatim, substituting the
+        # {SYSROOT} placeholder. Odin takes a single string for
+        # -extra-linker-flags, so join the list with spaces.
+        linker_flags = getattr(ctx.attr, "hermetic_linker_flags", [])
+        if linker_flags:
+            resolved = [f.replace("{SYSROOT}", sysroot_root) for f in linker_flags]
+            args.add("-extra-linker-flags:" + " ".join(resolved))
 
         toolchain_files = getattr(ctx.files, "hermetic_toolchain_files", [])
         hermetic_inputs.extend(toolchain_files)
