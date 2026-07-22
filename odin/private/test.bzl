@@ -13,7 +13,7 @@ defaults that can be overridden by the user:
     - ODIN_TEST_FANCY=false  (disables ANSI animations)
 """
 
-load("//odin/private:common.bzl", "OdinLibraryInfo", "compile_odin_binary")
+load("//odin/private:common.bzl", "HERMETIC_ATTRS", "OdinLibraryInfo", "compile_odin_binary")
 
 # Default defines injected into every odin_test compilation.
 # Users can override any of these via the `defines` attribute.
@@ -93,7 +93,7 @@ Example:
             doc = "Enable Odin vet checks (-vet flag).",
             default = False,
         ),
-    },
+    } | HERMETIC_ATTRS,
     test = True,
     toolchains = ["@rules_odin//odin:toolchain_type"],
 )

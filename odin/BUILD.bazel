@@ -1,12 +1,47 @@
 """rules_odin public package — exports toolchain type and public rules."""
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//visibility:public"])
 
 # The toolchain type that all odin rules resolve against.
 toolchain_type(
     name = "toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+# Opt-in build setting that enables hermetic linking on Linux. When true (and
+# the target is Linux with the hermetic_* attrs set on the odin target), the
+# Odin linker driver is pointed at a user-supplied hermetic clang+lld and a
+# pinned sysroot instead of the host toolchain. Default false = host linker,
+# unchanged behavior. Has no effect on macOS/Windows (host linker only).
+bool_flag(
+    name = "hermetic_linker",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+# Activation conditions: the flag is only honored on Linux. On macOS/Windows
+# the flag is inert (host linker), so a single --@rules_odin//odin:hermetic_linker=true
+# across a multi-OS matrix is ergonomic and never errors.
+config_setting(
+    name = "hermetic_linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    flag_values = {":hermetic_linker": "true"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "hermetic_linux_aarch64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flag_values = {":hermetic_linker": "true"},
     visibility = ["//visibility:public"],
 )
 

@@ -2,7 +2,7 @@
 #
 # Structure:
 #   lint  → pre-commit (buildifier) + typos
-#   test  → 3 OS × 3 Bazel versions (build + e2e smoke)
+#   test  → 4 OS × 3 Bazel versions (build + e2e smoke, failure propagation; hermetic on Linux)
 #   gate  → aggregates all results for branch protection
 #
 # Branch protection should require the "gate" job to pass.
@@ -99,6 +99,16 @@ jobs:
       - name: Failure propagation test (e2e)
         shell: bash
         working-directory: e2e/failure_propagation
+        run: |
+          echo "${{ matrix.bazel }}" > .bazelversion
+          bazel test //...
+
+      # Hermetic Linux linking is Linux-only (macOS/Windows link with the host
+      # toolchain), so this scenario runs only on the ubuntu runners.
+      - name: Hermetic link test (e2e, Linux only)
+        if: startsWith(matrix.os, 'ubuntu')
+        shell: bash
+        working-directory: e2e/hermetic
         run: |
           echo "${{ matrix.bazel }}" > .bazelversion
           bazel test //...

@@ -1,0 +1,38 @@
+load("@rules_odin//odin:defs.bzl", "odin_binary", "odin_library", "odin_test")
+
+# Bring-your-own hermetic clang+lld (from toolchains_llvm) and a pinned
+# Chromium sysroot. These labels are only consumed when the target links
+# hermetically (--@rules_odin//odin:hermetic_linker=true on Linux); on
+# macOS/Windows the flag is inert and these attrs are ignored (host linker).
+_HERMETIC_CLANG = "@llvm_toolchain_llvm//:bin/clang"
+
+_HERMETIC_TOOLCHAIN_FILES = "@llvm_toolchain_llvm//:bin"
+
+_HERMETIC_SYSROOT = select({
+    "@platforms//cpu:x86_64": "@org_chromium_sysroot_linux_x64//sysroot",
+    "@platforms//cpu:aarch64": "@org_chromium_sysroot_linux_arm64//sysroot",
+    "//conditions:default": None,
+})
+
+odin_library(
+    name = "greetings",
+    srcs = glob(["lib/*.odin"]),
+)
+
+odin_binary(
+    name = "hello",
+    srcs = glob(["hello/*.odin"]),
+    hermetic_clang = _HERMETIC_CLANG,
+    hermetic_sysroot = _HERMETIC_SYSROOT,
+    hermetic_toolchain_files = _HERMETIC_TOOLCHAIN_FILES,
+    deps = [":greetings"],
+)
+
+odin_test(
+    name = "hermetic_test",
+    srcs = glob(["tests/*.odin"]),
+    hermetic_clang = _HERMETIC_CLANG,
+    hermetic_sysroot = _HERMETIC_SYSROOT,
+    hermetic_toolchain_files = _HERMETIC_TOOLCHAIN_FILES,
+    deps = [":greetings"],
+)

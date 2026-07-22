@@ -36,11 +36,20 @@ Supported version matrix for `rules_odin`.
 
 ## Host Requirements
 
-rules_odin downloads the Odin compiler hermetically, but the **linker** must be
-available on the host:
+rules_odin downloads the Odin compiler hermetically, but by default the
+**linker** must be available on the host:
 
 | Platform | Required Host Tool                                  |
 | -------- | --------------------------------------------------- |
 | Linux    | `clang` (via system package manager)                |
 | macOS    | Xcode Command Line Tools (`xcode-select --install`) |
 | Windows  | MSVC Build Tools (Visual Studio)                    |
+
+On **Linux only**, this is opt-in rather than mandatory: setting
+`--@rules_odin//odin:hermetic_linker=true` and supplying a bring-your-own
+`toolchains_llvm` clang+lld and pinned sysroot (via the `hermetic_clang`,
+`hermetic_toolchain_files`, and `hermetic_sysroot` attrs on `odin_binary`/`odin_test`)
+removes the host `clang`/`gcc` requirement entirely. macOS and Windows always
+require the host toolchain — their SDKs/libraries are not redistributable. See
+[README.md § Hermetic Linux linking](README.md#hermetic-linux-linking) for
+setup details.

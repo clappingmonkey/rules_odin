@@ -1,0 +1,9 @@
+# Hermetic e2e bazelrc
+common --enable_bzlmod
+build --incompatible_strict_action_env
+
+# Enable opt-in hermetic Linux linking for this workspace.
+build --@rules_odin//odin:hermetic_linker=true
+
+# Show test output on failure
+test --test_output=errors

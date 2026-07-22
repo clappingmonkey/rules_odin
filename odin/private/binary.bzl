@@ -1,6 +1,6 @@
 """Implementation of the odin_binary rule."""
 
-load("//odin/private:common.bzl", "OdinLibraryInfo", "compile_odin_binary")
+load("//odin/private:common.bzl", "HERMETIC_ATTRS", "OdinLibraryInfo", "compile_odin_binary")
 
 def _odin_binary_impl(ctx):
     toolchain = ctx.toolchains["@rules_odin//odin:toolchain_type"]
@@ -60,7 +60,7 @@ odin_binary = rule(
             doc = "Enable Odin vet checks (-vet flag).",
             default = False,
         ),
-    },
+    } | HERMETIC_ATTRS,
     executable = True,
     toolchains = ["@rules_odin//odin:toolchain_type"],
 )
