@@ -2,6 +2,7 @@
 
 [![Check](https://github.com/clappingmonkey/rules_odin/actions/workflows/check.yaml/badge.svg)](https://github.com/clappingmonkey/rules_odin/actions/workflows/check.yaml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/v1/github.com/clappingmonkey/rules_odin/badge)](https://securityscorecards.dev/viewer/?uri=github.com/clappingmonkey/rules_odin)
+[![Release](https://img.shields.io/github/v/release/clappingmonkey/rules_odin?label=release)](https://github.com/clappingmonkey/rules_odin/releases/latest)
 
 Bazel rules for the [Odin programming language](https://odin-lang.org/).
 
@@ -22,10 +23,10 @@ Bazel rules for the [Odin programming language](https://odin-lang.org/).
 
 ## Quick Start
 
-Add to your `MODULE.bazel`:
+`rules_odin` is published on the [Bazel Central Registry](https://registry.bazel.build/modules/rules_odin). Add to your `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "rules_odin", version = "0.1.0")
+bazel_dep(name = "rules_odin", version = "0.4.1")
 
 odin = use_extension("@rules_odin//odin:extensions.bzl", "odin")
 odin.toolchain(odin_version = "dev-2026-06")
@@ -33,6 +34,8 @@ use_repo(odin, "odin_toolchains")
 
 register_toolchains("@odin_toolchains//:all")
 ```
+
+> Check the [BCR module page](https://registry.bazel.build/modules/rules_odin) or the [latest release](https://github.com/clappingmonkey/rules_odin/releases/latest) for newer published versions.
 
 Then in your `BUILD.bazel`:
 
