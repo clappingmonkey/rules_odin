@@ -79,6 +79,40 @@ jobs:
             exit 1
           fi
 
+      # Show which commits ccv treats as breaking, so a maintainer can tell an
+      # intended major from accidental `BREAKING CHANGE: ` text in a commit body
+      # (squash merges include the PR description). Matching body lines are
+      # printed under each subject. The grep is per line, so it may list a few
+      # more commits than ccv counts. Control characters and backticks are
+      # stripped so commit text cannot break out of the summary code block.
+      - name: List breaking commits
+        id: list
+        if: steps.ccv.outputs.new-tag-version-type == 'major'
+        continue-on-error: true # Informational only
+        run: |
+          sanitize() { LC_ALL=C tr -d '\000-\010\013-\037\177' | tr '`' "'"; }
+          # Same pattern as ccv v0.10.0; `^` anchors only the first alternative.
+          breaking='^(fix|feat)(\(.+\))?!: |BREAKING CHANGE: '
+          last_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*')"
+          commits="$(
+            git log --format='%H' -E --grep="${breaking}" "${last_tag}..HEAD" |
+              while read -r sha; do
+                git log -1 --format='%h %s' "${sha}"
+                git log -1 --format='%b' "${sha}" | { grep -E -- "${breaking}" || true; } | sed 's/^/    /'
+              done | sanitize
+          )"
+          {
+            echo "### Likely breaking commits"
+            echo
+            echo "Best effort: commits since the closest version tag that match ccv's breaking-change pattern."
+            echo "An empty list is inconclusive; inspect \`git log\` in that case."
+            echo
+            echo '```text'
+            echo "Since $(sanitize <<<"${last_tag}"):"
+            echo "${commits:-(none found)}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Report dry run
         if: steps.ccv.outputs.new-tag == 'true' && inputs.dry_run
         env:
@@ -89,7 +123,8 @@ jobs:
             echo "Dry run: next version would be \`${TAG}\` (${TYPE}) at \`${GITHUB_SHA}\`. No tag pushed."
             if [[ "${TYPE}" == "major" ]]; then
               echo
-              echo "A non-dry run would fail: major releases must be tagged by hand (see CONTRIBUTING.md#major-releases)."
+              echo "A non-dry run would fail: major releases must be tagged by hand. If the commits listed above"
+              echo "show the bump is accidental, tag the intended version instead (see CONTRIBUTING.md#major-releases)."
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
@@ -97,24 +132,49 @@ jobs:
         if: steps.ccv.outputs.new-tag == 'true' && steps.ccv.outputs.new-tag-version-type == 'major' && !inputs.dry_run
         env:
           TAG: ${{ steps.ccv.outputs.new-tag-version }}
+          LIST_OK: ${{ steps.list.outcome == 'success' }}
         run: |
           echo "::error title=Major version bump::Commits since the last tag require a major bump to ${TAG}. Major releases are not tagged automatically."
+          # Next patch after the highest release tag, offered for an accidental bump.
+          latest="$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
+          patch_tag=""
+          if [[ "${latest}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            patch_tag="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+          fi
+          print_commands() {
+            echo '```bash'
+            echo "git fetch origin"
+            echo "git -c tag.gpgSign=false tag $1 ${GITHUB_SHA}"
+            echo "git push origin refs/tags/$1"
+            echo '```'
+          }
           {
             echo "## Major version bump blocked"
             echo
-            echo "Commits since the last tag (\`feat!:\`, \`fix!:\` or \`BREAKING CHANGE:\`) require a major bump to \`${TAG}\`."
-            echo "No tag was pushed. Every later run will fail the same way until a major release is tagged by hand."
+            echo "Commits since the last tag require a major bump to \`${TAG}\` at \`${GITHUB_SHA}\`. No tag was pushed."
+            echo "Scheduled runs and dispatches fail the same way until a release tag is pushed by hand on this commit."
             echo
-            echo "To release this commit, tag it explicitly and push with your own credentials."
-            echo "Tags cannot be deleted or moved, so double-check the commit first:"
+            if [[ "${LIST_OK}" == "true" ]]; then
+              echo "Check the breaking commits listed above first."
+            else
+              echo "Listing the breaking commits failed. Inspect \`git log\` since the last tag first."
+            fi
             echo
-            echo '```bash'
-            echo "git fetch origin"
-            echo "git tag ${TAG} ${GITHUB_SHA}"
-            echo "git push origin refs/tags/${TAG}"
-            echo '```'
+            echo "Push the tag with your own credentials (a \`GITHUB_TOKEN\` push does not trigger \`release.yaml\`)."
+            echo "The push releases that version. Tags cannot be deleted or moved."
             echo
-            echo "\`release.yaml\` runs on the tag push. See CONTRIBUTING.md#major-releases."
+            echo "**Intended breaking change:** release \`${TAG}\`:"
+            echo
+            print_commands "${TAG}"
+            echo
+            if [[ -n "${patch_tag}" ]]; then
+              echo "**Accidental bump** (for example the text \`BREAKING CHANGE: \` in a PR description): release the next patch \`${patch_tag}\` instead."
+              echo "Use a minor version if the commits contain \`feat:\`. Later runs count only commits after this tag."
+              echo
+              print_commands "${patch_tag}"
+              echo
+            fi
+            echo "The tag must be lightweight (not annotated or signed) and on this commit. See CONTRIBUTING.md#major-releases."
           } >> "${GITHUB_STEP_SUMMARY}"
           exit 1
 
