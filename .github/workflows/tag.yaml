@@ -6,13 +6,22 @@
 # projects (bazel-lib, rules_lint) to avoid overwhelming BCR reviewers.
 #
 # Manual dispatch is available for immediate releases after critical fixes.
+# Set `dry_run` to compute the next version without pushing a tag or releasing.
 #
-# Major version bumps are blocked from auto-release (require human decision).
+# Major version bumps are never tagged automatically. ccv only computes the
+# version (write-tag: false); this workflow pushes the tag itself after the
+# major-bump guard passes. A major bump fails the run and must be released
+# manually (see CONTRIBUTING.md#releasing).
 
 name: Tag
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Compute the next version without pushing a tag or releasing
+        type: boolean
+        default: false
 
   # Bi-monthly: 1st and 16th at 15:00 UTC.
   # Offset from bazel-lib (2nd/17th) and rules_lint (3rd/18th) to stagger BCR load.
@@ -25,35 +34,131 @@ jobs:
   tag:
     name: Calculate version
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Serialize runs (cron + manual dispatch) so two runs cannot compute and
+    # push the same tag. The lock is held until the tag is pushed. Dry runs use
+    # their own group so they never displace a queued tagging run.
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.dry_run && 'dry-run' || 'tag' }}
+      cancel-in-progress: false
     permissions:
-      contents: write
+      contents: write # Push the version tag
     outputs:
-      new-tag: ${{ steps.ccv.outputs.new-tag }}
       new-tag-version: ${{ steps.ccv.outputs.new-tag-version }}
-      new-tag-version-type: ${{ steps.ccv.outputs.new-tag-version-type }}
+      pushed: ${{ steps.push.outputs.pushed }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0 # Full history required for ccv to find previous tags
+          persist-credentials: true # Needed by the "Push tag" step
 
       - name: Conventional Commits Versioner
         id: ccv
         uses: smlx/ccv@7318e2f25a52dcd550e75384b84983973251a1f8 # v0.10.0
+        with:
+          write-tag: false # Tag is pushed below, after the major-bump guard
+
+      - name: Report no version bump
+        if: steps.ccv.outputs.new-tag != 'true'
+        run: |
+          echo "No \`feat:\` or \`fix:\` commits since the last tag. Nothing to release." >> "${GITHUB_STEP_SUMMARY}"
+
+      # ccv v0.10.0 can mask errors (e.g. no tag reachable from HEAD) and still
+      # report new-tag=true with empty values, so validate before using them.
+      - name: Validate computed version
+        if: steps.ccv.outputs.new-tag == 'true'
+        env:
+          TAG: ${{ steps.ccv.outputs.new-tag-version }}
+          TYPE: ${{ steps.ccv.outputs.new-tag-version-type }}
+        run: |
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || [[ ! "${TYPE}" =~ ^(major|minor|patch)$ ]]; then
+            echo "::error::Unexpected output from ccv: version='${TAG}' type='${TYPE}'"
+            exit 1
+          fi
+
+      - name: Report dry run
+        if: steps.ccv.outputs.new-tag == 'true' && inputs.dry_run
+        env:
+          TAG: ${{ steps.ccv.outputs.new-tag-version }}
+          TYPE: ${{ steps.ccv.outputs.new-tag-version-type }}
+        run: |
+          {
+            echo "Dry run: next version would be \`${TAG}\` (${TYPE}) at \`${GITHUB_SHA}\`. No tag pushed."
+            if [[ "${TYPE}" == "major" ]]; then
+              echo
+              echo "A non-dry run would fail: major releases must be tagged by hand (see CONTRIBUTING.md#major-releases)."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Block major version bump
+        if: steps.ccv.outputs.new-tag == 'true' && steps.ccv.outputs.new-tag-version-type == 'major' && !inputs.dry_run
+        env:
+          TAG: ${{ steps.ccv.outputs.new-tag-version }}
+        run: |
+          echo "::error title=Major version bump::Commits since the last tag require a major bump to ${TAG}. Major releases are not tagged automatically."
+          {
+            echo "## Major version bump blocked"
+            echo
+            echo "Commits since the last tag (\`feat!:\`, \`fix!:\` or \`BREAKING CHANGE:\`) require a major bump to \`${TAG}\`."
+            echo "No tag was pushed. Every later run will fail the same way until a major release is tagged by hand."
+            echo
+            echo "To release this commit, tag it explicitly and push with your own credentials."
+            echo "Tags cannot be deleted or moved, so double-check the commit first:"
+            echo
+            echo '```bash'
+            echo "git fetch origin"
+            echo "git tag ${TAG} ${GITHUB_SHA}"
+            echo "git push origin refs/tags/${TAG}"
+            echo '```'
+            echo
+            echo "\`release.yaml\` runs on the tag push. See CONTRIBUTING.md#major-releases."
+          } >> "${GITHUB_STEP_SUMMARY}"
+          exit 1
+
+      - name: Push tag
+        id: push
+        # The major check is repeated so a skipped guard can never push a major tag.
+        if: >-
+          steps.ccv.outputs.new-tag == 'true' &&
+          steps.ccv.outputs.new-tag-version-type != 'major' &&
+          !inputs.dry_run
+        env:
+          TAG: ${{ steps.ccv.outputs.new-tag-version }}
+        run: |
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "::error::Tags are only pushed from main (got ${GITHUB_REF}). Use dry_run on other branches."
+            exit 1
+          fi
+          git tag "${TAG}"
+          result="$(git push --porcelain origin "refs/tags/${TAG}")"
+          echo "${result}"
+          # "*" = new ref created. Anything else (e.g. "=" up to date) means the
+          # tag was pushed by someone else, whose push already triggered release.yaml.
+          if ! grep -q $'^\*\t' <<<"${result}"; then
+            echo "::warning::Tag ${TAG} already existed on the remote. Not triggering a second release."
+            exit 0
+          fi
+          echo "pushed=true" >> "${GITHUB_OUTPUT}"
+          echo "Pushed tag \`${TAG}\` at \`${GITHUB_SHA}\`." >> "${GITHUB_STEP_SUMMARY}"
 
   release:
     name: Trigger release
     needs: tag
-    # Only trigger when:
-    #   1. A new tag was actually created
-    #   2. It is NOT a major version bump (major bumps require human decision)
-    if: needs.tag.outputs.new-tag == 'true' && needs.tag.outputs.new-tag-version-type != 'major'
+    # Only release a tag this run actually pushed. A tag pushed with
+    # GITHUB_TOKEN does not trigger release.yaml's own `push: tags` event,
+    # so this call is the only release for automated tags.
+    if: needs.tag.outputs.pushed == 'true'
     uses: ./.github/workflows/release.yaml
     with:
       tag_name: ${{ needs.tag.outputs.new-tag-version }}
+    # Maximum permissions the called release.yaml jobs may request.
     permissions:
-      contents: write
-      id-token: write
-      attestations: write
-      actions: read
+      contents: write # Create and publish the GitHub Release
+      id-token: write # Sign SLSA provenance attestations
+      attestations: write # Store the attestations
+      actions: read # Read release artifacts from the run in publish.yaml
     secrets:
       BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}
