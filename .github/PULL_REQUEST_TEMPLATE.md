@@ -13,7 +13,10 @@
     docs: update MODULE.bazel usage example
     ci: bump Bazel version in test matrix
 
-  Breaking changes: use feat! or fix! and fill out the BREAKING CHANGE section below.
+  Breaking changes: use feat! or fix! in the PR title and fill out the
+  BREAKING CHANGE section below. The PR description becomes the squash commit
+  body, so do not mention that footer (with its colon) for non-breaking changes;
+  it forces a major release. See CONTRIBUTING.md#major-releases.
 
   Delete this comment block before submitting.
 -->
